@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template_string, redirect
 import requests
 import os
 import json
@@ -71,6 +71,165 @@ def initialize_sample_data():
 # Initialize sample data
 initialize_sample_data()
 
+# === WEB FORM ROUTES ===
+@app.route('/admin')
+def admin_panel():
+    """Web interface for managing whitelist"""
+    return render_template_string('''
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <title>Whitelist Management</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+            body { 
+                font-family: Arial, sans-serif; 
+                margin: 40px;
+                background: #f5f5f5;
+            }
+            .container {
+                max-width: 600px;
+                background: white;
+                padding: 30px;
+                border-radius: 10px;
+                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            }
+            .form-group { 
+                margin: 20px 0; 
+                padding: 15px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }
+            input[type="text"] { 
+                padding: 10px; 
+                width: 200px; 
+                border: 1px solid #ccc;
+                border-radius: 4px;
+            }
+            button { 
+                padding: 10px 20px; 
+                margin: 5px; 
+                border: none;
+                border-radius: 4px;
+                cursor: pointer;
+                font-weight: bold;
+            }
+            .add-btn { background: #4CAF50; color: white; }
+            .remove-btn { background: #f44336; color: white; }
+            .view-btn { background: #2196F3; color: white; }
+            .success { 
+                color: green; 
+                background: #e8f5e8;
+                padding: 10px;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+            .error { 
+                color: red; 
+                background: #ffebee;
+                padding: 10px;
+                border-radius: 4px;
+                margin: 10px 0;
+            }
+            h1 { color: #333; }
+            h3 { color: #555; margin-bottom: 15px; }
+        </style>
+    </head>
+    <body>
+        <div class="container">
+            <h1>🎯 Whitelist Management</h1>
+            
+            <!-- Add User Form -->
+            <div class="form-group">
+                <h3>➕ Add User to Whitelist</h3>
+                <form action="/web_add_user" method="post">
+                    <input type="text" name="user_id" placeholder="Roblox User ID" required>
+                    <button type="submit" class="add-btn">Add User</button>
+                </form>
+            </div>
+
+            <!-- Remove User Form -->
+            <div class="form-group">
+                <h3>➖ Remove User from Whitelist</h3>
+                <form action="/web_remove_user" method="post">
+                    <input type="text" name="user_id" placeholder="Roblox User ID" required>
+                    <button type="submit" class="remove-btn">Remove User</button>
+                </form>
+            </div>
+
+            <!-- Current Whitelist Info -->
+            <div class="form-group">
+                <h3>📋 Current Whitelist</h3>
+                <a href="/whitelist" target="_blank">
+                    <button type="button" class="view-btn">View Full Whitelist</button>
+                </a>
+            </div>
+
+            <!-- Messages -->
+            {% if message %}
+            <div class="{{ 'success' if message_type == 'success' else 'error' }}">
+                {{ message }}
+            </div>
+            {% endif %}
+
+            <!-- Quick Stats -->
+            <div class="form-group">
+                <h3>📊 Quick Stats</h3>
+                <p><strong>Total Whitelisted Users:</strong> {{ user_count }}</p>
+                <a href="/status" target="_blank">
+                    <button type="button" class="view-btn">System Status</button>
+                </a>
+            </div>
+        </div>
+    </body>
+    </html>
+    ''', message=request.args.get('message'), message_type=request.args.get('type'), user_count=len(whitelist_data))
+
+@app.route('/web_add_user', methods=['POST'])
+def web_add_user():
+    """Add a user to whitelist via web form"""
+    user_id = request.form['user_id'].strip()
+    
+    try:
+        user_id = int(user_id)
+        username = get_roblox_username(user_id) or f"User_{user_id}"
+        
+        with data_lock:
+            whitelist_data[user_id] = {
+                'username': username,
+                'discord_user': 'Web_Admin',
+                'added_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                'added_by': 'Web_Form'
+            }
+        
+        return redirect('/admin?message=User %s added successfully!&type=success' % user_id)
+        
+    except ValueError:
+        return redirect('/admin?message=Invalid User ID format&type=error')
+    except Exception as e:
+        return redirect('/admin?message=Error: %s&type=error' % str(e))
+
+@app.route('/web_remove_user', methods=['POST'])
+def web_remove_user():
+    """Remove a user from whitelist via web form"""
+    user_id = request.form['user_id'].strip()
+    
+    try:
+        user_id = int(user_id)
+        
+        with data_lock:
+            if user_id in whitelist_data:
+                removed_user = whitelist_data[user_id]
+                del whitelist_data[user_id]
+                return redirect('/admin?message=User %s removed successfully!&type=success' % user_id)
+            else:
+                return redirect('/admin?message=User %s not found in whitelist&type=error' % user_id)
+                
+    except ValueError:
+        return redirect('/admin?message=Invalid User ID format&type=error')
+    except Exception as e:
+        return redirect('/admin?message=Error: %s&type=error' % str(e))
+
 # API Routes
 @app.route('/')
 def home():
@@ -87,7 +246,8 @@ def home():
             "webhook_verify": "/webhook_verify (POST)",
             "add_user": "/whitelist/add (POST)",
             "remove_user": "/whitelist/remove (POST)",
-            "remove_user_direct": "/whitelist/<user_id> (DELETE)"
+            "remove_user_direct": "/whitelist/<user_id> (DELETE)",
+            "web_admin_panel": "/admin"
         }
     })
 
@@ -384,5 +544,6 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print(f"🚀 Starting Roblox Whitelist API on port {port}")
     print(f"📊 Pre-loaded {len(whitelist_data)} users")
+    print(f"🖥️  Web Admin Panel: http://localhost:{port}/admin")
     print(f"🆕 Remove functionality: ✅ IMPLEMENTED")
     app.run(host='0.0.0.0', port=port, debug=False)
