@@ -32,6 +32,7 @@ ADMIN_ROLE_IDS_STR = os.environ.get('ADMIN_ROLE_IDS', '[]')
 WEB_API_URL = os.environ.get('WEB_API_URL', 'https://discordbotv2-production.up.railway.app')
 
 # Parse ADMIN_ROLE_IDS from JSON string
+# REMOVE THIS DUPLICATE LINE: ADMIN_ROLE_IDS_STR = os.environ.get('ADMIN_ROLE_IDS', '[]')
 try:
     ADMIN_ROLE_IDS = json.loads(ADMIN_ROLE_IDS_STR)
     if not isinstance(ADMIN_ROLE_IDS, list):
@@ -45,6 +46,22 @@ print(f"🏠 GUILD_ID: {GUILD_ID}")
 print(f"👑 ADMIN_ROLE_IDS: {ADMIN_ROLE_IDS}")
 print(f"🌐 WEB_API_URL: {WEB_API_URL}")
 
+# Validate critical configuration
+if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
+    print("❌ CRITICAL: BOT_TOKEN not properly configured!")
+    
+if GUILD_ID == 0:
+    print("❌ CRITICAL: GUILD_ID not properly configured!")
+
+# Check if we're running on Railway
+if os.environ.get('RAILWAY_ENVIRONMENT'):
+    print("🚄 Running on Railway Platform")
+    # Ensure WEB_API_URL uses the Railway provided URL
+    railway_public_url = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+    if railway_public_url:
+        WEB_API_URL = f"https://{railway_public_url}"
+        print(f"🔗 Using Railway URL: {WEB_API_URL}")
+        
 # Roblox API functions
 def get_roblox_user_id(username):
     """Get Roblox UserID from username"""
@@ -71,7 +88,6 @@ def get_roblox_username(user_id):
     except Exception as e:
         print(f"Roblox API error: {e}")
         return None
-
 # Initialize with some test data for demonstration
 def initialize_sample_data():
     """Add some sample data for testing"""
