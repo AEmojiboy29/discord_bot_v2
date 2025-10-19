@@ -1013,8 +1013,9 @@ def internal_error(error):
 # DON'T auto-start the Discord bot here - let main.py handle it
 # start_discord_bot()  # REMOVED THIS LINE
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 8080))
-    print(f"🚀 Starting Roblox Whitelist API on port {port}")
-    print(f"🌐 Web Admin: http://0.0.0.0:{port}/admin")
-    app.run(host='0.0.0.0', port=port, debug=False)
+# REMOVE THIS ENTIRE BLOCK:
+# if __name__ == '__main__':
+#     port = int(os.environ.get('PORT', 8080))
+#     print(f"🚀 Starting Roblox Whitelist API on port {port}")
+#     print(f"🌐 Web Admin: http://0.0.0.0:{port}/admin")
+#     app.run(host='0.0.0.0', port=port, debug=False)
