@@ -84,7 +84,10 @@ def home():
             "verify_user": "/verify?username=RobloxUser",
             "get_whitelist": "/whitelist",
             "server_status": "/status",
-            "webhook_verify": "/webhook_verify (POST)"
+            "webhook_verify": "/webhook_verify (POST)",
+            "add_user": "/whitelist/add (POST)",
+            "remove_user": "/whitelist/remove (POST)",
+            "remove_user_direct": "/whitelist/<user_id> (DELETE)"
         }
     })
 
@@ -146,11 +149,116 @@ def get_whitelist():
             formatted_users[str(user_id)] = user_data
         
         return jsonify({
-            'success': True,
+            'status': 'success',
+            'whitelist': list(whitelist_data.keys()),
             'whitelisted_users': formatted_users,
             'total_count': len(whitelist_data),
             'timestamp': time.time()
         })
+
+@app.route('/whitelist/add', methods=['POST'])
+def add_to_whitelist():
+    """Add user to whitelist via POST"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'No user_id provided'}), 400
+        
+        user_id = int(user_id)
+        username = data.get('username')
+        
+        if not username:
+            username = get_roblox_username(user_id) or f"User_{user_id}"
+        
+        discord_user = data.get('discord_user', 'API')
+        
+        with data_lock:
+            whitelist_data[user_id] = {
+                'username': username,
+                'discord_user': discord_user,
+                'added_at': time.strftime('%Y-%m-%dT%H:%M:%S'),
+                'added_by': data.get('added_by', 'API')
+            }
+        
+        return jsonify({
+            'status': 'success',
+            'message': f'User {username} ({user_id}) added to whitelist',
+            'user_id': user_id,
+            'username': username,
+            'whitelist': list(whitelist_data.keys())
+        })
+        
+    except ValueError:
+        return jsonify({'error': 'Invalid user_id format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/whitelist/remove', methods=['POST'])
+def remove_from_whitelist():
+    """Remove user from whitelist via POST"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({'error': 'No user_id provided'}), 400
+        
+        user_id = int(user_id)
+        
+        with data_lock:
+            if user_id in whitelist_data:
+                removed_user = whitelist_data[user_id]
+                del whitelist_data[user_id]
+                return jsonify({
+                    'status': 'success',
+                    'message': f'User {removed_user.get("username", "Unknown")} ({user_id}) removed from whitelist',
+                    'user_id': user_id,
+                    'username': removed_user.get('username', 'Unknown'),
+                    'whitelist': list(whitelist_data.keys())
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'User {user_id} not found in whitelist'
+                }), 404
+                
+    except ValueError:
+        return jsonify({'error': 'Invalid user_id format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/whitelist/<user_id>', methods=['DELETE'])
+def remove_from_whitelist_direct(user_id):
+    """Remove user from whitelist via DELETE request"""
+    try:
+        if not user_id:
+            return jsonify({'error': 'No user_id provided'}), 400
+        
+        user_id = int(user_id)
+        
+        with data_lock:
+            if user_id in whitelist_data:
+                removed_user = whitelist_data[user_id]
+                del whitelist_data[user_id]
+                return jsonify({
+                    'status': 'success',
+                    'message': f'User {removed_user.get("username", "Unknown")} ({user_id}) removed from whitelist',
+                    'user_id': user_id,
+                    'username': removed_user.get('username', 'Unknown'),
+                    'whitelist': list(whitelist_data.keys())
+                })
+            else:
+                return jsonify({
+                    'status': 'error',
+                    'message': f'User {user_id} not found in whitelist'
+                }), 404
+                
+    except ValueError:
+        return jsonify({'error': 'Invalid user_id format'}), 400
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/status', methods=['GET'])
 def status():
@@ -276,4 +384,5 @@ if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print(f"🚀 Starting Roblox Whitelist API on port {port}")
     print(f"📊 Pre-loaded {len(whitelist_data)} users")
+    print(f"🆕 Remove functionality: ✅ IMPLEMENTED")
     app.run(host='0.0.0.0', port=port, debug=False)
