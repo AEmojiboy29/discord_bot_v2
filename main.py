@@ -3,7 +3,6 @@ from discord.ext import commands
 import json
 import requests
 import os
-from flask import Flask, request, render_template_string, redirect, jsonify
 
 print("=== ROBLOX WHITELIST BOT STARTING ===")
 
@@ -20,9 +19,6 @@ except Exception as e:
     print(f"❌ Config error: {e}")
     exit()
 
-# Flask web server setup
-app = Flask(__name__)
-
 # Discord bot setup
 intents = discord.Intents.default()
 intents.messages = True
@@ -31,7 +27,7 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
-# Web API functions (your existing functions)
+# Web API functions
 def api_check_whitelist(user_id):
     try:
         response = requests.get(f"{WEB_API_URL}/check_whitelist?user_id={user_id}", timeout=10)
@@ -95,214 +91,7 @@ def api_get_whitelist():
         print(f"API get whitelist error: {e}")
         return None
 
-# === FLASK WEB ROUTES ===
-@app.route('/admin')
-def admin_panel():
-    """Web interface for managing whitelist"""
-    return render_template_string('''
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <title>Whitelist Management</title>
-        <meta name="viewport" content="width=device-width, initial-scale=1">
-        <style>
-            body { 
-                font-family: Arial, sans-serif; 
-                margin: 40px;
-                background: #f5f5f5;
-            }
-            .container {
-                max-width: 600px;
-                background: white;
-                padding: 30px;
-                border-radius: 10px;
-                box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-            }
-            .form-group { 
-                margin: 20px 0; 
-                padding: 15px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-            }
-            input[type="text"] { 
-                padding: 10px; 
-                width: 200px; 
-                border: 1px solid #ccc;
-                border-radius: 4px;
-            }
-            button { 
-                padding: 10px 20px; 
-                margin: 5px; 
-                border: none;
-                border-radius: 4px;
-                cursor: pointer;
-                font-weight: bold;
-            }
-            .add-btn { background: #4CAF50; color: white; }
-            .remove-btn { background: #f44336; color: white; }
-            .view-btn { background: #2196F3; color: white; }
-            .success { 
-                color: green; 
-                background: #e8f5e8;
-                padding: 10px;
-                border-radius: 4px;
-                margin: 10px 0;
-            }
-            .error { 
-                color: red; 
-                background: #ffebee;
-                padding: 10px;
-                border-radius: 4px;
-                margin: 10px 0;
-            }
-            h1 { color: #333; }
-            h3 { color: #555; margin-bottom: 15px; }
-        </style>
-    </head>
-    <body>
-        <div class="container">
-            <h1>🎯 Whitelist Management</h1>
-            
-            <!-- Add User Form -->
-            <div class="form-group">
-                <h3>➕ Add User to Whitelist</h3>
-                <form action="/add_user" method="post">
-                    <input type="text" name="user_id" placeholder="Roblox User ID" required>
-                    <button type="submit" class="add-btn">Add User</button>
-                </form>
-            </div>
-
-            <!-- Remove User Form -->
-            <div class="form-group">
-                <h3>➖ Remove User from Whitelist</h3>
-                <form action="/remove_user" method="post">
-                    <input type="text" name="user_id" placeholder="Roblox User ID" required>
-                    <button type="submit" class="remove-btn">Remove User</button>
-                </form>
-            </div>
-
-            <!-- Current Whitelist Info -->
-            <div class="form-group">
-                <h3>📋 Current Whitelist</h3>
-                <a href="/whitelist" target="_blank">
-                    <button type="button" class="view-btn">View Full Whitelist</button>
-                </a>
-                <a href="/api/whitelist" target="_blank">
-                    <button type="button" class="view-btn">View JSON API</button>
-                </a>
-            </div>
-
-            <!-- Messages -->
-            {% if message %}
-            <div class="{{ 'success' if message_type == 'success' else 'error' }}">
-                {{ message }}
-            </div>
-            {% endif %}
-
-            <!-- Quick Stats -->
-            <div class="form-group">
-                <h3>📊 Quick Stats</h3>
-                <a href="/status" target="_blank">
-                    <button type="button" class="view-btn">System Status</button>
-                </a>
-            </div>
-        </div>
-    </body>
-    </html>
-    ''', message=request.args.get('message'), message_type=request.args.get('type'))
-
-@app.route('/add_user', methods=['POST'])
-def add_user():
-    """Add a user to whitelist via web form"""
-    user_id = request.form['user_id'].strip()
-    
-    try:
-        # Use your existing API function to add user
-        success = api_add_whitelist(user_id, "Web_Form_Add", "Web_Admin")
-        
-        if success:
-            return redirect('/admin?message=User %s added successfully!&type=success' % user_id)
-        else:
-            return redirect('/admin?message=Failed to add user %s via API&type=error' % user_id)
-        
-    except Exception as e:
-        return redirect('/admin?message=Error: %s&type=error' % str(e))
-
-@app.route('/remove_user', methods=['POST'])
-def remove_user():
-    """Remove a user from whitelist via web form"""
-    user_id = request.form['user_id'].strip()
-    
-    try:
-        # Use your existing API function to remove user
-        success = api_remove_whitelist(user_id)
-        
-        if success:
-            return redirect('/admin?message=User %s removed successfully!&type=success' % user_id)
-        else:
-            return redirect('/admin?message=Failed to remove user %s via API&type=error' % user_id)
-        
-    except Exception as e:
-        return redirect('/admin?message=Error: %s&type=error' % str(e))
-
-@app.route('/api/whitelist')
-def api_whitelist_web():
-    """JSON endpoint to view whitelist via web"""
-    try:
-        data = api_get_whitelist()
-        if data:
-            return jsonify(data)
-        return jsonify({'error': 'Could not fetch whitelist'}), 500
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/status')
-def status_web():
-    """Web status page"""
-    try:
-        # Test API connectivity
-        whitelist_data = api_get_whitelist()
-        user_count = len(whitelist_data.get('whitelist', [])) if whitelist_data else 0
-        
-        return render_template_string('''
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>System Status</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 40px; }
-                .status-card { background: white; padding: 20px; border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); max-width: 500px; }
-                .status-item { margin: 10px 0; }
-                .live { color: green; font-weight: bold; }
-            </style>
-        </head>
-        <body>
-            <div class="status-card">
-                <h1>🤖 System Status</h1>
-                <div class="status-item">
-                    <strong>Web API:</strong> <span class="live">✅ Live</span>
-                </div>
-                <div class="status-item">
-                    <strong>Whitelisted Users:</strong> {{ user_count }}
-                </div>
-                <div class="status-item">
-                    <strong>API URL:</strong> {{ api_url }}
-                </div>
-                <br>
-                <a href="/admin">← Back to Admin Panel</a>
-            </div>
-        </body>
-        </html>
-        ''', user_count=user_count, api_url=WEB_API_URL)
-    except Exception as e:
-        return f"Status error: {str(e)}"
-
-@app.route('/')
-def home():
-    """Home page redirects to admin panel"""
-    return redirect('/admin')
-
-# Admin check function (your existing function)
+# Admin check function
 def is_admin():
     async def predicate(ctx):
         # Check if user has administrator permission
@@ -317,12 +106,12 @@ def is_admin():
         return False
     return commands.check(predicate)
 
-# === DISCORD BOT EVENTS & COMMANDS (your existing code below) ===
+# === DISCORD BOT EVENTS ===
 @bot.event
 async def on_ready():
     print(f'✅ {bot.user} is now online!')
     print(f'🌐 Web API: {WEB_API_URL}')
-    print(f'🌐 Web Admin Panel: https://discordbotv2-production.up.railway.app/admin')
+    print(f'🌐 Web Admin Panel: {WEB_API_URL}/admin')
     
     await bot.change_presence(
         activity=discord.Activity(
@@ -449,9 +238,6 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
     else:
         await ctx.send("❌ Invalid action. Use `add`, `remove`, `list`, `check`, or `api`")
 
-# ... (rest of your existing Discord bot commands remain unchanged)
-# [Keep all your existing @bot.command functions exactly as they are]
-
 @bot.command(name='setup')
 @is_admin()
 async def setup_command(ctx):
@@ -482,7 +268,120 @@ async def setup_command(ctx):
     
     await ctx.send(embed=embed)
 
-# ... (rest of your existing code: verify_command, status_command, etc.)
+# === USER COMMANDS ===
+@bot.command(name='verify')
+async def verify_command(ctx, roblox_username: str = None):
+    """Request whitelist access"""
+    if roblox_username is None:
+        await ctx.send("❌ Please provide your Roblox username: `!verify YourRobloxUsername`")
+        return
+    
+    result = api_verify_username(roblox_username)
+    
+    if not result or not result.get('success'):
+        await ctx.send("❌ Could not verify Roblox username. Please check the spelling.")
+        return
+    
+    user_id = result['user_id']
+    verified_username = result['username']
+    is_whitelisted = result['whitelisted']
+    
+    if is_whitelisted:
+        embed = discord.Embed(
+            title="✅ Already Whitelisted!",
+            description=f"**{verified_username}** (`{user_id}`) is already whitelisted!",
+            color=0x00ff00
+        )
+        await ctx.send(embed=embed)
+        return
+    
+    embed = discord.Embed(
+        title="🔒 Verification Request",
+        color=0xffa500
+    )
+    embed.description = f"**Player:** {verified_username}\n**UserID:** `{user_id}`\n**Discord User:** {ctx.author.mention}"
+    embed.add_field(
+        name="Actions",
+        value=f"✅ Approve: `!whitelist add {user_id}`\n❌ Remove: `!whitelist remove {user_id}`",
+        inline=False
+    )
+    embed.add_field(
+        name="Profile",
+        value=f"[View Roblox Profile](https://www.roblox.com/users/{user_id}/profile)",
+        inline=False
+    )
+    
+    # Send to admins
+    admin_count = 0
+    for member in ctx.guild.members:
+        if member.guild_permissions.administrator and not member.bot:
+            try:
+                await member.send(embed=embed)
+                admin_count += 1
+            except:
+                pass
+    
+    await ctx.send(f"✅ Verification request for **{verified_username}** sent to {admin_count} admins!")
+
+@bot.command(name='status')
+async def status_command(ctx):
+    """Check bot status"""
+    embed = discord.Embed(
+        title="🤖 Bot Status",
+        color=0x00ff00
+    )
+    
+    embed.add_field(name="Server", value=ctx.guild.name, inline=True)
+    embed.add_field(name="Ping", value=f"{round(bot.latency * 1000)}ms", inline=True)
+    embed.add_field(name="Web API", value="✅ Live", inline=True)
+    embed.add_field(name="API URL", value=WEB_API_URL, inline=False)
+    
+    # Test API connectivity
+    try:
+        response = requests.get(f"{WEB_API_URL}/whitelist", timeout=5)
+        if response.status_code == 200:
+            data = response.json()
+            user_count = len(data.get('whitelist', []))
+            embed.add_field(name="Whitelisted Users", value=str(user_count), inline=True)
+        else:
+            embed.add_field(name="Whitelisted Users", value="❌ API Error", inline=True)
+    except:
+        embed.add_field(name="Whitelisted Users", value="❌ Unreachable", inline=True)
+    
+    await ctx.send(embed=embed)
+
+@bot.command(name='ping')
+async def ping(ctx):
+    """Test bot response time"""
+    await ctx.send(f'🏓 Pong! {round(bot.latency * 1000)}ms')
+
+@bot.command(name='commands')
+async def help_command(ctx):
+    """Show all commands"""
+    embed = discord.Embed(
+        title="🤖 Roblox Whitelist Bot - Commands",
+        color=0x0099ff
+    )
+    
+    embed.add_field(
+        name="👑 Admin Commands",
+        value="`!whitelist add USERID` - Add user\n`!whitelist remove USERID` - Remove user\n`!whitelist list` - Show users\n`!whitelist check USERID` - Check status\n`!whitelist api` - API endpoints\n`!setup` - Setup guide",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="👤 Player Commands", 
+        value="`!verify ROBLOX_USERNAME` - Request access\n`!status` - System status\n`!ping` - Test bot",
+        inline=False
+    )
+    
+    embed.add_field(
+        name="🌐 Web Admin Panel",
+        value=f"[{WEB_API_URL}/admin]({WEB_API_URL}/admin)",
+        inline=False
+    )
+    
+    await ctx.send(embed=embed)
 
 # Error handling
 @bot.event
@@ -497,18 +396,5 @@ async def on_command_error(ctx, error):
         print(f"Error: {error}")
         await ctx.send("❌ An error occurred while executing the command.")
 
-def run_flask():
-    """Run Flask web server"""
-    port = int(os.environ.get('PORT', 8080))
-    app.run(host='0.0.0.0', port=port, debug=False)
-
 if __name__ == "__main__":
-    import threading
-    
-    # Start Flask web server in a separate thread
-    flask_thread = threading.Thread(target=run_flask, daemon=True)
-    flask_thread.start()
-    print("🌐 Flask web server started!")
-    
-    # Start Discord bot
     bot.run(BOT_TOKEN)
