@@ -42,7 +42,7 @@ except:
 print("=== ENVIRONMENT CONFIG ===")
 print(f"🔑 BOT_TOKEN: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
 print(f"🏠 GUILD_ID: {GUILD_ID}")
-print(f"👑 ADMIN_ROLE_IDS: {ADMIN_ROLE_IDS}")  # FIXED: Use ADMIN_ROLE_IDS not ADMIN_ROLE_IDS_STR
+print(f"👑 ADMIN_ROLE_IDS: {ADMIN_ROLE_IDS}")
 print(f"🌐 WEB_API_URL: {WEB_API_URL}")
 
 # Validate critical configuration
@@ -87,6 +87,7 @@ def get_roblox_username(user_id):
     except Exception as e:
         print(f"Roblox API error: {e}")
         return None
+
 # Initialize with some test data for demonstration
 def initialize_sample_data():
     """Add some sample data for testing"""
@@ -118,10 +119,13 @@ intents.members = True
 
 bot = commands.Bot(command_prefix='!', intents=intents, help_command=None)
 
-# Web API functions for Discord bot
+# Web API functions for Discord bot - USE LOCALHOST FOR SELF-REQUESTS
 def api_check_whitelist(user_id):
     try:
-        response = requests.get(f"{WEB_API_URL}/check_whitelist?user_id={user_id}", timeout=10)
+        # Use local server instead of external URL when calling ourselves
+        port = os.environ.get('PORT', '8080')
+        local_url = f"http://localhost:{port}/check_whitelist?user_id={user_id}"
+        response = requests.get(local_url, timeout=5)
         if response.status_code == 200:
             return response.json()
         return None
@@ -131,7 +135,10 @@ def api_check_whitelist(user_id):
 
 def api_verify_username(username):
     try:
-        response = requests.get(f"{WEB_API_URL}/verify?username={username}", timeout=10)
+        # Use local server
+        port = os.environ.get('PORT', '8080')
+        local_url = f"http://localhost:{port}/verify?username={username}"
+        response = requests.get(local_url, timeout=5)
         if response.status_code == 200:
             return response.json()
         return None
@@ -147,7 +154,10 @@ def api_add_whitelist(user_id, username, discord_user):
             'discord_user': discord_user,
             'action': 'add'
         }
-        response = requests.post(f"{WEB_API_URL}/webhook_verify", json=payload, timeout=10)
+        # Use local server
+        port = os.environ.get('PORT', '8080')
+        local_url = f"http://localhost:{port}/webhook_verify"
+        response = requests.post(local_url, json=payload, timeout=5)
         return response.status_code == 200
     except Exception as e:
         print(f"API add error: {e}")
@@ -156,15 +166,18 @@ def api_add_whitelist(user_id, username, discord_user):
 def api_remove_whitelist(user_id):
     """Remove user from whitelist via API"""
     try:
-        # Try POST method first
+        # Use local server
+        port = os.environ.get('PORT', '8080')
+        local_url = f"http://localhost:{port}/whitelist/remove"
         payload = {'user_id': user_id}
-        response = requests.post(f"{WEB_API_URL}/whitelist/remove", json=payload, timeout=10)
+        response = requests.post(local_url, json=payload, timeout=5)
         
         if response.status_code == 200:
             return True
         
         # If POST fails, try DELETE method
-        response = requests.delete(f"{WEB_API_URL}/whitelist/{user_id}", timeout=10)
+        delete_url = f"http://localhost:{port}/whitelist/{user_id}"
+        response = requests.delete(delete_url, timeout=5)
         return response.status_code == 200
         
     except Exception as e:
@@ -174,7 +187,10 @@ def api_remove_whitelist(user_id):
 def api_get_whitelist():
     """Get all whitelisted users"""
     try:
-        response = requests.get(f"{WEB_API_URL}/whitelist", timeout=10)
+        # Use local server
+        port = os.environ.get('PORT', '8080')
+        local_url = f"http://localhost:{port}/whitelist"
+        response = requests.get(local_url, timeout=5)
         if response.status_code == 200:
             return response.json()
         return None
@@ -261,15 +277,15 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
         try:
             data = api_get_whitelist()
             if data and data.get('status') == 'success':
-                whitelist_data = data.get('whitelist', [])
-                if whitelist_data:
-                    user_list = "\n".join([f"• `{uid}`" for uid in whitelist_data[:10]])  # Show first 10
+                users_list = data.get('whitelist', [])
+                if users_list:
+                    user_list = "\n".join([f"• `{uid}`" for uid in users_list[:10]])  # Show first 10
                     embed = discord.Embed(
                         title="📋 Whitelisted Users",
                         description=user_list,
                         color=0x0099ff
                     )
-                    embed.set_footer(text=f"Total: {len(whitelist_data)} users - See full list at {WEB_API_URL}/admin")
+                    embed.set_footer(text=f"Total: {len(users_list)} users - See full list at {WEB_API_URL}/admin")
                     await ctx.send(embed=embed)
                 else:
                     embed = discord.Embed(
@@ -279,7 +295,18 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
                     )
                     await ctx.send(embed=embed)
             else:
-                await ctx.send("❌ Could not fetch whitelist from API")
+                # Fallback to direct memory access if API fails
+                with data_lock:
+                    user_count = len(whitelist_data)
+                    user_list = "\n".join([f"• `{uid}` ({whitelist_data[uid].get('username', 'Unknown')})" for uid in list(whitelist_data.keys())[:5]])
+                
+                embed = discord.Embed(
+                    title="📋 Whitelisted Users (Local Cache)",
+                    description=user_list or "No users whitelisted",
+                    color=0xffa500
+                )
+                embed.set_footer(text=f"Total: {user_count} users - API unavailable, showing cached data")
+                await ctx.send(embed=embed)
         except Exception as e:
             await ctx.send(f"❌ API error: {str(e)}")
             
@@ -422,20 +449,24 @@ async def status_command(ctx):
     
     embed.add_field(name="Server", value=ctx.guild.name, inline=True)
     embed.add_field(name="Ping", value=f"{round(bot.latency * 1000)}ms", inline=True)
-    embed.add_field(name="Web API", value="✅ Live", inline=True)
-    embed.add_field(name="API URL", value=WEB_API_URL, inline=False)
     
-    # Test API connectivity
+    # Test API connectivity using localhost
     try:
-        response = requests.get(f"{WEB_API_URL}/whitelist", timeout=5)
+        port = os.environ.get('PORT', '8080')
+        response = requests.get(f"http://localhost:{port}/whitelist", timeout=5)
         if response.status_code == 200:
             data = response.json()
             user_count = len(data.get('whitelist', []))
+            embed.add_field(name="Web API", value="✅ Live", inline=True)
             embed.add_field(name="Whitelisted Users", value=str(user_count), inline=True)
         else:
-            embed.add_field(name="Whitelisted Users", value="❌ API Error", inline=True)
+            embed.add_field(name="Web API", value="❌ API Error", inline=True)
+            embed.add_field(name="Whitelisted Users", value="Unknown", inline=True)
     except:
-        embed.add_field(name="Whitelisted Users", value="❌ Unreachable", inline=True)
+        embed.add_field(name="Web API", value="❌ Unreachable", inline=True)
+        embed.add_field(name="Whitelisted Users", value="Unknown", inline=True)
+    
+    embed.add_field(name="API URL", value=WEB_API_URL, inline=False)
     
     await ctx.send(embed=embed)
 
@@ -495,9 +526,15 @@ def run_discord_bot():
     else:
         print("❌ No valid BOT_TOKEN found, skipping Discord bot")
 
-# Start Discord bot in background thread
+# Start Discord bot in background thread - DON'T AUTO-START HERE
 def start_discord_bot():
+    """Start Discord bot in background thread - only call this once from main.py"""
     if BOT_TOKEN and BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+        # Check if bot is already running
+        if hasattr(bot, 'is_ready') and bot.is_ready():
+            print("🤖 Discord bot is already running")
+            return
+            
         bot_thread = threading.Thread(target=run_discord_bot, daemon=True)
         bot_thread.start()
         print("✅ Discord bot thread started!")
@@ -973,8 +1010,8 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
-# Start Discord bot when web server starts
-start_discord_bot()
+# DON'T auto-start the Discord bot here - let main.py handle it
+# start_discord_bot()  # REMOVED THIS LINE
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
