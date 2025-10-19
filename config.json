@@ -1,6 +1,7 @@
 {
-  "BOT_TOKEN": "MTQyOTExMzY4NTU3MzYzNjIwNw.GgyH3c.eVu_YQqfViWTsDBfweoEVKGxPJvd404tZ3HsM4",
+  "BOT_TOKEN": "YOUR_BOT_TOKEN_HERE",
   "GUILD_ID": "1429112980393693318",
   "ADMIN_ROLE_IDS": [1429130560407867553],
   "WEB_API_URL": "https://discordbotv2-production.up.railway.app"
 }
+
