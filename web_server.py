@@ -29,7 +29,7 @@ PRE_WHITELISTED_USERS = {
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
 GUILD_ID = int(os.environ.get('GUILD_ID', '0'))
 ADMIN_ROLE_IDS_STR = os.environ.get('ADMIN_ROLE_IDS', '[]')
-WEB_API_URL = os.environ.get('WEB_API_URL', 'https://discordbotv2-production.up.railway.app')
+WEB_API_URL = os.environ.get('WEB_API_URL', 'https://discordbotv2-production-28c4.up.railway.app')
 
 # Parse ADMIN_ROLE_IDS from JSON string
 try:
@@ -52,29 +52,17 @@ if not BOT_TOKEN or BOT_TOKEN == "YOUR_BOT_TOKEN_HERE":
 if GUILD_ID == 0:
     print("❌ CRITICAL: GUILD_ID not properly configured!")
 
+# Helper function to build URLs without double slashes
+def get_full_url(path):
+    """Helper to build URLs without double slashes"""
+    base = WEB_API_URL.rstrip('/')
+    path = path.lstrip('/')
+    return f"{base}/{path}"
+
 # Check if we're running on Railway
 if os.environ.get('RAILWAY_ENVIRONMENT'):
     print("🚄 Running on Railway Platform")
-    
-    # Try multiple Railway environment variables
-    railway_public_url = (
-        os.environ.get('RAILWAY_PUBLIC_DOMAIN') or
-        os.environ.get('RAILWAY_STATIC_URL') or
-        None
-    )
-    
-    if railway_public_url:
-        # Remove protocol if present
-        if railway_public_url.startswith('https://'):
-            railway_public_url = railway_public_url[8:]
-        elif railway_public_url.startswith('http://'):
-            railway_public_url = railway_public_url[7:]
-        
-        WEB_API_URL = f"https://{railway_public_url}"
-        print(f"🔗 Using Railway URL: {WEB_API_URL}")
-    else:
-        # Fallback: Use the WEB_API_URL from environment or default
-        print(f"🔗 Using configured URL: {WEB_API_URL}")
+    print(f"🔗 Using configured URL: {WEB_API_URL}")
         
 # Roblox API functions
 def get_roblox_user_id(username):
@@ -232,7 +220,9 @@ def is_admin():
 @bot.event
 async def on_ready():
     print(f'✅ Discord Bot: {bot.user} is now online!')
-    print(f'🌐 Web Admin Panel: {WEB_API_URL}/admin')
+    # Fix the double slash issue
+    admin_url = get_full_url('admin')
+    print(f'🌐 Web Admin Panel: {admin_url}')
     
     await bot.change_presence(
         activity=discord.Activity(
@@ -259,7 +249,7 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
                 color=0x00ff00
             )
             embed.add_field(name="Added by", value=ctx.author.mention, inline=True)
-            embed.add_field(name="Web Panel", value=f"[Manage Whitelist]({WEB_API_URL}/admin)", inline=False)
+            embed.add_field(name="Web Panel", value=f"[Manage Whitelist]({get_full_url('admin')})", inline=False)
             await ctx.send(embed=embed)
         else:
             await ctx.send("❌ Failed to add user to whitelist via API")
@@ -283,7 +273,7 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
                 color=0xffa500
             )
             embed.add_field(name="Removed by", value=ctx.author.mention, inline=True)
-            embed.add_field(name="Web Panel", value=f"[Manage Whitelist]({WEB_API_URL}/admin)", inline=False)
+            embed.add_field(name="Web Panel", value=f"[Manage Whitelist]({get_full_url('admin')})", inline=False)
             await ctx.send(embed=embed)
         else:
             await ctx.send("❌ Failed to remove user from whitelist via API")
@@ -300,7 +290,7 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
                         description=user_list,
                         color=0x0099ff
                     )
-                    embed.set_footer(text=f"Total: {len(users_list)} users - See full list at {WEB_API_URL}/admin")
+                    embed.set_footer(text=f"Total: {len(users_list)} users - See full list at {get_full_url('admin')}")
                     await ctx.send(embed=embed)
                 else:
                     embed = discord.Embed(
@@ -332,17 +322,17 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
         )
         embed.add_field(
             name="Web Admin Panel",
-            value=f"[{WEB_API_URL}/admin]({WEB_API_URL}/admin)",
+            value=f"[{get_full_url('admin')}]({get_full_url('admin')})",
             inline=False
         )
         embed.add_field(
             name="Check Whitelist",
-            value=f"`{WEB_API_URL}/check_whitelist?user_id=USERID`",
+            value=f"`{get_full_url('check_whitelist?user_id=USERID')}`",
             inline=False
         )
         embed.add_field(
             name="Get All Whitelisted",
-            value=f"`{WEB_API_URL}/whitelist`",
+            value=f"`{get_full_url('whitelist')}`",
             inline=False
         )
         await ctx.send(embed=embed)
@@ -362,7 +352,7 @@ async def whitelist_command(ctx, action: str, user_id: int = None):
                 color=0x00ff00 if is_whitelisted else 0xff0000
             )
             embed.add_field(name="Status", value=status, inline=True)
-            embed.add_field(name="Web Panel", value=f"[Manage]({WEB_API_URL}/admin)", inline=True)
+            embed.add_field(name="Web Panel", value=f"[Manage]({get_full_url('admin')})", inline=True)
             await ctx.send(embed=embed)
         else:
             await ctx.send(f"❌ Could not check whitelist status for user `{user_id}`")
@@ -382,7 +372,7 @@ async def setup_command(ctx):
     
     embed.add_field(
         name="🌐 Web Admin Panel",
-        value=f"[{WEB_API_URL}/admin]({WEB_API_URL}/admin)",
+        value=f"[{get_full_url('admin')}]({get_full_url('admin')})",
         inline=False
     )
     
@@ -512,7 +502,7 @@ async def help_command(ctx):
     
     embed.add_field(
         name="🌐 Web Admin Panel",
-        value=f"[{WEB_API_URL}/admin]({WEB_API_URL}/admin)",
+        value=f"[{get_full_url('admin')}]({get_full_url('admin')})",
         inline=False
     )
     
@@ -724,15 +714,15 @@ def home():
         "timestamp": time.time(),
         "whitelisted_users_count": len(whitelist_data),
         "endpoints": {
-            "check_whitelist": "/check_whitelist?user_id=123",
-            "verify_user": "/verify?username=RobloxUser",
-            "get_whitelist": "/whitelist",
-            "server_status": "/status",
-            "webhook_verify": "/webhook_verify (POST)",
-            "add_user": "/whitelist/add (POST)",
-            "remove_user": "/whitelist/remove (POST)",
-            "remove_user_direct": "/whitelist/<user_id> (DELETE)",
-            "web_admin_panel": "/admin"
+            "check_whitelist": f"{get_full_url('check_whitelist?user_id=123')}",
+            "verify_user": f"{get_full_url('verify?username=RobloxUser')}",
+            "get_whitelist": f"{get_full_url('whitelist')}",
+            "server_status": f"{get_full_url('status')}",
+            "webhook_verify": f"{get_full_url('webhook_verify')} (POST)",
+            "add_user": f"{get_full_url('whitelist/add')} (POST)",
+            "remove_user": f"{get_full_url('whitelist/remove')} (POST)",
+            "remove_user_direct": f"{get_full_url('whitelist/<user_id>')} (DELETE)",
+            "web_admin_panel": f"{get_full_url('admin')}"
         }
     })
 
@@ -1028,9 +1018,4 @@ def internal_error(error):
 # DON'T auto-start the Discord bot here - let main.py handle it
 # start_discord_bot()  # REMOVED THIS LINE
 
-# REMOVE THIS ENTIRE BLOCK:
-# if __name__ == '__main__':
-#     port = int(os.environ.get('PORT', 8080))
-#     print(f"🚀 Starting Roblox Whitelist API on port {port}")
-#     print(f"🌐 Web Admin: http://0.0.0.0:{port}/admin")
-#     app.run(host='0.0.0.0', port=port, debug=False)
+# REMOVE the Flask app.run() block at the bottom
