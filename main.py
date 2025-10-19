@@ -1,13 +1,13 @@
 import os
 import sys
 import time
-import threading
+import signal
+import asyncio
 
 # Add the current directory to Python path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 print("🔍 Starting Roblox Whitelist System...")
-print("📋 Environment Check:")
 
 # Check critical environment variables
 env_vars = {
@@ -21,37 +21,40 @@ env_vars = {
 
 for key, value in env_vars.items():
     status = '✅ Set' if value and value != 'NOT_SET' else '❌ Missing'
-    print(f"   {key}: {status} ({value})")
+    print(f"   {key}: {status}")
 
 try:
-    from web_server import app, start_discord_bot, WEB_API_URL
+    from web_server import app, bot, BOT_TOKEN, start_discord_bot
     
     print("✅ Successfully imported web_server module")
-    print(f"🌐 Web API URL configured: {WEB_API_URL}")
-    
-    # Add a simple health check endpoint with a unique name
-    @app.route('/health')
-    def health_check():
-        return {
-            'status': 'healthy', 
-            'service': 'Roblox Whitelist API',
-            'timestamp': time.time(),
-            'discord_bot': 'online'
-        }
-    
-    # Don't redefine the '/' route - it already exists in web_server.py
-    print("✅ Using existing routes from web_server.py")
     
 except Exception as e:
     print(f"❌ Failed to import web_server: {e}")
-    print("💡 Check for syntax errors in web_server.py")
     raise
 
-def run_web_server():
-    """Run the web server in a separate thread"""
-    port = int(os.environ.get('PORT', 8080))
-    print(f"🌐 Starting web server on port {port}")
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+# Global variable to track shutdown
+shutting_down = False
+
+def handle_shutdown(signum, frame):
+    """Handle shutdown signals gracefully"""
+    global shutting_down
+    print(f"\n⚠️  Received shutdown signal {signum}")
+    shutting_down = True
+    
+    # Shutdown Discord bot gracefully
+    try:
+        if bot and bot.is_ready():
+            print("🤖 Shutting down Discord bot...")
+            asyncio.create_task(bot.close())
+    except Exception as e:
+        print(f"⚠️  Error during bot shutdown: {e}")
+    
+    # Exit the application
+    sys.exit(0)
+
+# Register signal handlers
+signal.signal(signal.SIGTERM, handle_shutdown)
+signal.signal(signal.SIGINT, handle_shutdown)
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
@@ -59,28 +62,34 @@ if __name__ == '__main__':
     print("\n🚀 STARTING SERVER...")
     print(f"   Port: {port}")
     print(f"   Host: 0.0.0.0")
+    
     railway_domain = env_vars['RAILWAY_PUBLIC_DOMAIN']
     if railway_domain:
         print(f"   Web Admin: https://{railway_domain}/admin")
         print(f"   Health Check: https://{railway_domain}/health")
-        print(f"   API Status: https://{railway_domain}/")
     else:
         print(f"   Web Admin: http://0.0.0.0:{port}/admin")
         print(f"   Health Check: http://0.0.0.0:{port}/health")
-        print(f"   API Status: http://0.0.0.0:{port}/")
     
-    # Start Discord bot in background
+    # Start Discord bot (only once)
     try:
-        start_discord_bot()
-        print("🤖 Discord bot startup initiated")
+        if BOT_TOKEN and BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
+            print("🤖 Starting Discord bot...")
+            # Import the function to start the bot thread
+            from web_server import start_discord_bot
+            start_discord_bot()
+            print("✅ Discord bot startup initiated")
+        else:
+            print("❌ No valid BOT_TOKEN - Discord bot disabled")
     except Exception as e:
         print(f"⚠️  Discord bot startup warning: {e}")
     
-    # Start web server in main thread to keep process alive
+    # Run web server
     try:
-        print("\n📡 STARTING WEB SERVER (Main Thread)...")
-        run_web_server()
+        print("\n📡 WEB SERVER STARTING...")
+        print("💡 Server is now running and should stay online")
+        app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
     except Exception as e:
-        print(f"❌ Web server failed to start: {e}")
-        print("💡 Check if the port is available and dependencies are installed")
-        raise
+        print(f"❌ Web server failed: {e}")
+        if not shutting_down:
+            raise
