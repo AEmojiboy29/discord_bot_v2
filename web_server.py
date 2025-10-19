@@ -27,18 +27,19 @@ PRE_WHITELISTED_USERS = {
 
 # Load config from environment variables (more secure)
 BOT_TOKEN = os.environ.get('BOT_TOKEN')
-GUILD_ID = int(os.environ.get('GUILD_ID', '0'))
+GUILD_ID_STR = os.environ.get('GUILD_ID', '0').strip()
+
+# Safely parse GUILD_ID - handle malformed environment variables
+try:
+    # Remove any spaces or equals signs that might be in the value
+    GUILD_ID_STR = GUILD_ID_STR.replace('=', '').strip()
+    GUILD_ID = int(GUILD_ID_STR) if GUILD_ID_STR else 0
+except (ValueError, TypeError):
+    print(f"⚠️  WARNING: Invalid GUILD_ID format: '{GUILD_ID_STR}' - defaulting to 0")
+    GUILD_ID = 0
+
 ADMIN_ROLE_IDS_STR = os.environ.get('ADMIN_ROLE_IDS', '[]')
 WEB_API_URL = os.environ.get('WEB_API_URL', 'https://discordbotv2-production.up.railway.app')
-
-# Parse ADMIN_ROLE_IDS from JSON string
-# REMOVE THIS DUPLICATE LINE: ADMIN_ROLE_IDS_STR = os.environ.get('ADMIN_ROLE_IDS', '[]')
-try:
-    ADMIN_ROLE_IDS = json.loads(ADMIN_ROLE_IDS_STR)
-    if not isinstance(ADMIN_ROLE_IDS, list):
-        ADMIN_ROLE_IDS = []
-except:
-    ADMIN_ROLE_IDS = []
 
 print("=== ENVIRONMENT CONFIG ===")
 print(f"🔑 BOT_TOKEN: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
