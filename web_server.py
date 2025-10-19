@@ -55,11 +55,26 @@ if GUILD_ID == 0:
 # Check if we're running on Railway
 if os.environ.get('RAILWAY_ENVIRONMENT'):
     print("🚄 Running on Railway Platform")
-    # Ensure WEB_API_URL uses the Railway provided URL
-    railway_public_url = os.environ.get('RAILWAY_PUBLIC_DOMAIN')
+    
+    # Try multiple Railway environment variables
+    railway_public_url = (
+        os.environ.get('RAILWAY_PUBLIC_DOMAIN') or
+        os.environ.get('RAILWAY_STATIC_URL') or
+        None
+    )
+    
     if railway_public_url:
+        # Remove protocol if present
+        if railway_public_url.startswith('https://'):
+            railway_public_url = railway_public_url[8:]
+        elif railway_public_url.startswith('http://'):
+            railway_public_url = railway_public_url[7:]
+        
         WEB_API_URL = f"https://{railway_public_url}"
         print(f"🔗 Using Railway URL: {WEB_API_URL}")
+    else:
+        # Fallback: Use the WEB_API_URL from environment or default
+        print(f"🔗 Using configured URL: {WEB_API_URL}")
         
 # Roblox API functions
 def get_roblox_user_id(username):
