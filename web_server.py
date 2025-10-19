@@ -540,6 +540,33 @@ def not_found(error):
 def internal_error(error):
     return jsonify({'error': 'Internal server error'}), 500
 
+# === DISCORD BOT INTEGRATION ===
+def start_discord_bot():
+    """Start Discord bot in a separate thread"""
+    def run_bot():
+        try:
+            print("🤖 Starting Discord bot...")
+            # Import and run the bot directly
+            import subprocess
+            import sys
+            result = subprocess.run([sys.executable, "main.py"], 
+                                  capture_output=True, text=True)
+            if result.returncode != 0:
+                print(f"❌ Discord bot error: {result.stderr}")
+            else:
+                print(f"✅ Discord bot output: {result.stdout}")
+        except Exception as e:
+            print(f"❌ Failed to start Discord bot: {e}")
+    
+    # Start bot in a background thread
+    import threading
+    bot_thread = threading.Thread(target=run_bot, daemon=True)
+    bot_thread.start()
+    print("✅ Discord bot thread started!")
+
+# Start Discord bot when web server starts
+start_discord_bot()
+
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print(f"🚀 Starting Roblox Whitelist API on port {port}")
