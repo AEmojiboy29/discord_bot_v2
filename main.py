@@ -28,34 +28,18 @@ try:
     print("✅ Successfully imported web_server module")
     print(f"🌐 Web API URL configured: {WEB_API_URL}")
     
-    # Add a simple health check endpoint
+    # Add a simple health check endpoint with a unique name
     @app.route('/health')
     def health_check():
         return {
             'status': 'healthy', 
             'service': 'Roblox Whitelist API',
             'timestamp': time.time(),
-            'whitelisted_users': len(getattr(app, 'whitelist_data', {})),
             'discord_bot': 'online'
         }
     
-    @app.route('/')
-    def home():
-        return {
-            "status": "online",
-            "service": "Roblox Whitelist API",
-            "timestamp": time.time(),
-            "endpoints": {
-                "health": "/health",
-                "admin_panel": "/admin",
-                "check_whitelist": "/check_whitelist?user_id=123",
-                "verify_user": "/verify?username=RobloxUser", 
-                "get_whitelist": "/whitelist",
-                "server_status": "/status"
-            }
-        }
-    
-    print("✅ Routes initialized successfully")
+    # Don't redefine the '/' route - it already exists in web_server.py
+    print("✅ Using existing routes from web_server.py")
     
 except Exception as e:
     print(f"❌ Failed to import web_server: {e}")
@@ -68,10 +52,9 @@ if __name__ == '__main__':
     print("\n🚀 STARTING SERVER...")
     print(f"   Port: {port}")
     print(f"   Host: 0.0.0.0")
-    print(f"   Web Admin: http://0.0.0.0:{port}/admin")
-    print(f"   Health Check: http://0.0.0.0:{port}/health")
-    print(f"   API Status: http://0.0.0.0:{port}/")
-    print(f"   Public URL: {env_vars['RAILWAY_PUBLIC_DOMAIN'] or 'Not set'}")
+    print(f"   Web Admin: https://{env_vars['RAILWAY_PUBLIC_DOMAIN'] or '0.0.0.0:' + str(port)}/admin")
+    print(f"   Health Check: https://{env_vars['RAILWAY_PUBLIC_DOMAIN'] or '0.0.0.0:' + str(port)}/health")
+    print(f"   API Status: https://{env_vars['RAILWAY_PUBLIC_DOMAIN'] or '0.0.0.0:' + str(port)}/")
     
     # Start Discord bot in background
     try:
