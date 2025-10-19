@@ -25,18 +25,25 @@ PRE_WHITELISTED_USERS = {
     "gpv_t": None
 }
 
-# Load config for Discord bot
+# Load config from environment variables (more secure)
+BOT_TOKEN = os.environ.get('BOT_TOKEN')
+GUILD_ID = int(os.environ.get('GUILD_ID', '0'))
+ADMIN_ROLE_IDS_STR = os.environ.get('ADMIN_ROLE_IDS', '[]')
+WEB_API_URL = os.environ.get('WEB_API_URL', 'https://discordbotv2-production.up.railway.app')
+
+# Parse ADMIN_ROLE_IDS from JSON string
 try:
-    with open('config.json') as f:
-        config = json.load(f)
-    BOT_TOKEN = config['BOT_TOKEN']
-    GUILD_ID = int(config['GUILD_ID'])
-    WEB_API_URL = config.get('WEB_API_URL', 'https://discordbotv2-production.up.railway.app')
-    ADMIN_ROLE_IDS = config.get('ADMIN_ROLE_IDS', [])
-    print("✅ Config loaded successfully!")
-except Exception as e:
-    print(f"❌ Config error: {e}")
-    BOT_TOKEN = None
+    ADMIN_ROLE_IDS = json.loads(ADMIN_ROLE_IDS_STR)
+    if not isinstance(ADMIN_ROLE_IDS, list):
+        ADMIN_ROLE_IDS = []
+except:
+    ADMIN_ROLE_IDS = []
+
+print("=== ENVIRONMENT CONFIG ===")
+print(f"🔑 BOT_TOKEN: {'✅ Set' if BOT_TOKEN else '❌ Missing'}")
+print(f"🏠 GUILD_ID: {GUILD_ID}")
+print(f"👑 ADMIN_ROLE_IDS: {ADMIN_ROLE_IDS}")
+print(f"🌐 WEB_API_URL: {WEB_API_URL}")
 
 # Roblox API functions
 def get_roblox_user_id(username):
@@ -464,23 +471,23 @@ async def on_command_error(ctx, error):
 
 def run_discord_bot():
     """Run Discord bot in background"""
-    if BOT_TOKEN:
+    if BOT_TOKEN and BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
         try:
             print("🤖 Starting Discord bot...")
             bot.run(BOT_TOKEN)
         except Exception as e:
             print(f"❌ Discord bot failed: {e}")
     else:
-        print("❌ No BOT_TOKEN found, skipping Discord bot")
+        print("❌ No valid BOT_TOKEN found, skipping Discord bot")
 
 # Start Discord bot in background thread
 def start_discord_bot():
-    if BOT_TOKEN:
+    if BOT_TOKEN and BOT_TOKEN != "YOUR_BOT_TOKEN_HERE":
         bot_thread = threading.Thread(target=run_discord_bot, daemon=True)
         bot_thread.start()
         print("✅ Discord bot thread started!")
     else:
-        print("❌ No BOT_TOKEN configured - Discord bot disabled")
+        print("❌ No valid BOT_TOKEN configured - Discord bot disabled")
 
 # === WEB FORM ROUTES ===
 @app.route('/admin')
@@ -957,7 +964,5 @@ start_discord_bot()
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 8080))
     print(f"🚀 Starting Roblox Whitelist API on port {port}")
-    print(f"📊 Pre-loaded {len(whitelist_data)} users")
-    print(f"🖥️  Web Admin Panel: http://localhost:{port}/admin")
-    print(f"🤖 Discord Bot: {'✅ Enabled' if BOT_TOKEN else '❌ Disabled'}")
+    print(f"🌐 Web Admin: http://0.0.0.0:{port}/admin")
     app.run(host='0.0.0.0', port=port, debug=False)
